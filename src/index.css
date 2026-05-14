@@ -1,0 +1,16 @@
+/* src/index.css */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #1e1e1e; /* デスクトップの背景のようなダークカラー */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* 画面全体の高さを確保 */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Windowsライクなフォント */
+  color: #ffffff;
+}
+
+#root {
+  display: contents; /* Reactのルート要素がレイアウトの邪魔をしないようにする */
+}
