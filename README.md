@@ -33,12 +33,6 @@ PWA (Progressive Web Apps) に対応しており，PCのデスクトップにイ
 Node.jsがインストールされている環境で，以下のコマンドを実行してください．
 
 1. 依存パッケージのインストール
-
-```
-
-```text
-README.md generated successfully.
-
 ```bash
 npm install
 
