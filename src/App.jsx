@@ -64,20 +64,19 @@ function App() {
     };
   }, []);
 
-  // --- ウィンドウサイズ固定（Macタイトルバー考慮） ---
+  // --- ウィンドウサイズ設定（モード切替時のみ実行するよう修正） ---
   useEffect(() => {
     if (!isStandalone) return;
 
-    const enforceWindowSize = () => {
+    // リサイズを無理に防ぐのをやめ、モードが変わった瞬間だけ最適なサイズにする
+    const setOptimalWindowSize = () => {
       if (viewMode === 'main') window.resizeTo(400, 750);
-      // ★ミニモードの高さを 200 → 260 に増やし、上下の余白を確実に確保しました
       else if (viewMode === 'mini') window.resizeTo(220, 260); 
       else if (viewMode === 'bar') window.resizeTo(520, 100); 
     };
 
-    enforceWindowSize();
-    window.addEventListener('resize', enforceWindowSize);
-    return () => window.removeEventListener('resize', enforceWindowSize);
+    setOptimalWindowSize();
+    // ガクガクする原因となる resize イベントの監視を削除しました
   }, [viewMode, isStandalone]);
 
   const handleInstallClick = async () => {
