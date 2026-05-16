@@ -510,11 +510,11 @@ function App() {
                   ) : (
                     <>
                       <div className="settings-desc">
-                        <p>複数端末で履歴を同期するには、GitHubのPersonal Access Token (PAT) を入力してください。</p>
+                        <p>複数端末で履歴を同期するには、GitHubのPersonal Access Tokenを入力してください。</p>
                         <ul style={{paddingLeft: '20px', margin: '10px 0'}}>
-                          <li>GitHubの <b>Developer Settings</b> から作成できます。</li>
-                          <li>権限(Scope)は必ず <b>gist</b> のみを選択してください。</li>
-                          <li>トークンはブラウザ内にのみ安全に保存されます。</li>
+                          <li>GitHubの <b>[Settings]</b> ➔ <b>[Developer settings]</b> ➔ <b>[Personal access tokens]</b> ➔ <b>[Tokens (classic)]</b> から作成できます。</li>
+                          <li>権限は必ず <b>[gist]</b> のみを選択してください。</li>
+                          <li>トークンはブラウザ内にのみ保存されます。</li>
                         </ul>
                       </div>
                       <input 
@@ -537,12 +537,18 @@ function App() {
         {viewMode === 'mini' && (
           <div className="mini-content">
             <div className="clock-mini">{currentTime}</div>
+            
+            {/* ↓ 新設：作業中のタスク名を表示する要素（長すぎる場合は自動で省略されます） ↓ */}
+            <div className="mini-task" title={taskName || 'No Task'}>
+              {taskName || 'No Task'}
+            </div>
+
             <div className="time-display-mini">{formatTime(timeLeft)}</div>
             <div className="mini-controls">
               <button onClick={toggleTimer} className="icon-btn">{isRunning ? <PauseIcon /> : <PlayIcon />}</button>
               <button onClick={resetTimer} className="icon-btn"><StopIcon /></button>
             </div>
-            <button className="btn-expand" onClick={() => setViewMode('main')}><ExpandIcon /> mini</button>
+            <button className="btn-expand" onClick={() => setViewMode('main')}><ExpandIcon /> 拡大</button>
           </div>
         )}
 
