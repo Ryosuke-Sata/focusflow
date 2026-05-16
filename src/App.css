@@ -282,9 +282,15 @@ html, body {
   z-index: 1000;
   box-shadow: 0 4px 20px rgba(0,0,0,0.8);
   font-size: 13px;
-  width: 300px;
+  width: 320px; /* ★ 300px から 320px に少し広げました */
   box-sizing: border-box;
 }
+
+/* ★ アプリインストールの文言が絶対に改行されないようにする追加設定 */
+.install-prompt span {
+  white-space: nowrap; 
+}
+
 .install-prompt div { display: flex; gap: 10px; }
 .install-prompt button { padding: 6px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
 .btn-install { background-color: #3B8ED0; color: white; }
@@ -361,4 +367,20 @@ html, body {
 .btn-alert-cancel:hover {
   color: white;
   border-color: #888;
+}
+
+/* iOS (iPhone) 用の案内バナー調整 */
+.ios-prompt {
+  padding: 15px 20px;
+}
+.ios-instruction {
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  margin: 0 0 10px 0;
+  color: #e0e0e0;
+}
+.ios-instruction b {
+  color: white;
+  font-weight: bold;
 }

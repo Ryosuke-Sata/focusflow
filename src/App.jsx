@@ -105,11 +105,13 @@ function App() {
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  
+  // スマホ（iPhone）用のインストール通知状態
+  const [showIosPrompt, setShowIosPrompt] = useState(false);
 
   const [customAlert, setCustomAlert] = useState(null);
   const [customConfirm, setCustomConfirm] = useState(null);
 
-  // --- Gist 同期用の状態 ---
   const [githubToken, setGithubToken] = useState('');
   const [patInput, setPatInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -124,18 +126,30 @@ function App() {
       autoPull(savedToken, savedHistory);
     }
 
+    // すでにインストール済み（アプリ化）されているか判定
+    const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    setIsStandalone(checkStandalone);
+
+    // iOS (iPhone/iPad) 判定
+    const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase()) || 
+                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    // iOSかつブラウザ開いている場合のみ、iPhone用案内を出す
+    if (isIosDevice && !checkStandalone) {
+      setShowIosPrompt(true);
+    }
+
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    setIsStandalone(checkStandalone);
 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
   const autoPull = async (token, localHistory) => {
+    if (!navigator.onLine) return; 
     try {
       setIsSyncing(true);
       const remote = await pullFromGist(token);
@@ -153,6 +167,7 @@ function App() {
 
   useEffect(() => {
     if (!isStandalone) return;
+    // スマホではリサイズ命令は無視されるため、PC版のPWAのみで機能します
     const setOptimalWindowSize = () => {
       if (viewMode === 'main') window.resizeTo(400, 750);
       else if (viewMode === 'mini') window.resizeTo(220, 260); 
@@ -220,23 +235,27 @@ function App() {
         duration_minutes: timerMode.includes('25') ? 25 : 50,
         task_name: taskName || '名無しのタスク', time_range: `${startTimeStr} - ${endTimeStr}`
       };
+      
       const newHistory = [newLog, ...history].slice(0, 50);
       setHistory(newHistory);
       localStorage.setItem('pomodoroHistory', JSON.stringify(newHistory));
 
-      // --- Gistへ自動Push (自動統合ロジックへ修正) ---
       if (githubToken) {
-        (async () => {
-          try {
-            const remote = await pullFromGist(githubToken);
-            const merged = mergeHistory(newHistory, remote);
-            setHistory(merged);
-            localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
-            await pushToGist(githubToken, merged);
-          } catch (e) {
-            console.error("作業完了時の自動同期エラー:", e);
-          }
-        })();
+        if (!navigator.onLine) {
+          setCustomAlert("現在オフラインのため、\nGistとの同期は一時停止しています。\n（データは手元に保存済みです）");
+        } else {
+          (async () => {
+            try {
+              const remote = await pullFromGist(githubToken);
+              const merged = mergeHistory(newHistory, remote);
+              setHistory(merged);
+              localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
+              await pushToGist(githubToken, merged);
+            } catch (e) {
+              console.error("作業完了時の自動同期エラー:", e);
+            }
+          })();
+        }
       }
     }
     startTimeRef.current = null;
@@ -270,24 +289,32 @@ function App() {
 
   const exportCSV = () => {
     if (history.length === 0) return setCustomAlert("出力する履歴データが\nありません。");
-    const csvContent = ["ID,Date,Minutes,Task Name,Time Range", ...history.map(row => `"${row.id}","${row.date}","${row.duration_minutes}","${row.task_name.replace(/"/g, '""')}","${row.time_range}"`)].join("\n");
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `focusflow_export_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '')}.csv`;
-    a.click();
     
-    // PATの登録状態に応じて処理を分岐
-    if (githubToken) {
-      setCustomAlert("Gistの最新データを\nCSV出力しました。");
-    } else {
-      setHistory([]); 
-      localStorage.removeItem('pomodoroHistory');
-      setCustomAlert("CSVを出力し、\n履歴をクリアしました。");
-    }
+    setCustomConfirm({
+      message: githubToken 
+        ? "Gistの最新データを\nCSVファイルとして出力しますか？" 
+        : "CSVを出力しますか？\n（※出力後にアプリ内の履歴は\n完全にクリアされます）",
+      onConfirm: () => {
+        const csvContent = ["ID,Date,Minutes,Task Name,Time Range", ...history.map(row => `"${row.id}","${row.date}","${row.duration_minutes}","${row.task_name.replace(/"/g, '""')}","${row.time_range}"`)].join("\n");
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `focusflow_export_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '')}.csv`;
+        a.click();
+        
+        setCustomConfirm(null); 
+        
+        if (githubToken) {
+          setCustomAlert("Gistの最新データを\nCSV出力しました。");
+        } else {
+          setHistory([]); 
+          localStorage.removeItem('pomodoroHistory');
+          setCustomAlert("CSVを出力し、\n履歴をクリアしました。");
+        }
+      }
+    });
   };
 
-  // --- Settings用のアクション ---
   const handleSavePat = () => {
     if (!patInput) return;
     setCustomConfirm({
@@ -304,6 +331,10 @@ function App() {
 
   const handleManualPull = async () => {
     if (!githubToken) return;
+    if (!navigator.onLine) {
+      return setCustomAlert("現在オフラインのため、\nネットワーク接続を確認してください。");
+    }
+    
     try {
       setIsSyncing(true);
       const remote = await pullFromGist(githubToken);
@@ -320,15 +351,17 @@ function App() {
 
   const handleManualPush = async () => {
     if (!githubToken) return;
+    if (!navigator.onLine) {
+      return setCustomAlert("現在オフラインのため、\nネットワーク接続を確認してください。");
+    }
+
     try {
       setIsSyncing(true);
-      // 保存する前に、Gist側のデータを一度取得してマージ（上書き消去の防止）
       const remote = await pullFromGist(githubToken);
       const merged = mergeHistory(history, remote);
       setHistory(merged);
       localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
       
-      // 統合後のデータをアップロード
       await pushToGist(githubToken, merged);
       setCustomAlert("Gistの最新データと統合し、\nアップロードを完了しました。");
     } catch (e) {
@@ -340,13 +373,27 @@ function App() {
 
   return (
     <div className={`app-container ${viewMode}`}>
-      {deferredPrompt && !isStandalone && (
+      
+      {/* PC / Android 用のインストールプロンプト */}
+      {deferredPrompt && !isStandalone && !showIosPrompt && (
         <div className="install-prompt">
-          <span>アプリとしてPCにインストールしますか？</span>
+          <span>アプリとして端末にインストールしますか？</span>
           <div>
             <button className="btn-install" onClick={handleInstallClick}>はい</button>
             <button className="btn-close" onClick={() => setDeferredPrompt(null)}>✕</button>
           </div>
+        </div>
+      )}
+
+      {/* iPhone (iOS Safari) 用のインストールガイド */}
+      {showIosPrompt && !isStandalone && (
+        <div className="install-prompt ios-prompt">
+          <p className="ios-instruction">
+            アプリとして利用するには、下部の<br />
+            <b>[共有ボタン]</b> から <b>[ホーム画面に追加]</b><br />
+            をタップしてください。
+          </p>
+          <button className="btn-close" style={{width: '100%'}} onClick={() => setShowIosPrompt(false)}>閉じる</button>
         </div>
       )}
 
