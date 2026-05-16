@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   const isDev = mode === 'development';
 
   return {
+    base: '/focusflow/',
+    
     plugins: [
       react(),
       VitePWA({
