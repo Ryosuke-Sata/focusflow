@@ -46,6 +46,9 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
 
+  // 見切れ対策用のカスタムアラート状態
+  const [customAlert, setCustomAlert] = useState(null);
+
   useEffect(() => {
     const savedHistory = JSON.parse(localStorage.getItem('pomodoroHistory') || '[]');
     setHistory(savedHistory);
@@ -64,11 +67,10 @@ function App() {
     };
   }, []);
 
-  // --- ウィンドウサイズ設定（モード切替時のみ実行するよう修正） ---
+  // --- ウィンドウサイズ設定（モード切替時のみ実行） ---
   useEffect(() => {
     if (!isStandalone) return;
 
-    // リサイズを無理に防ぐのをやめ、モードが変わった瞬間だけ最適なサイズにする
     const setOptimalWindowSize = () => {
       if (viewMode === 'main') window.resizeTo(400, 750);
       else if (viewMode === 'mini') window.resizeTo(220, 260); 
@@ -76,7 +78,6 @@ function App() {
     };
 
     setOptimalWindowSize();
-    // ガクガクする原因となる resize イベントの監視を削除しました
   }, [viewMode, isStandalone]);
 
   const handleInstallClick = async () => {
@@ -172,7 +173,8 @@ function App() {
   };
 
   const exportCSV = () => {
-    if (history.length === 0) return alert("出力する履歴データがありません。");
+    if (history.length === 0) return setCustomAlert("出力する履歴データが\nありません");
+    
     const csvContent = ["ID,Date,Minutes,Task Name,Time Range", ...history.map(row => `"${row.id}","${row.date}","${row.duration_minutes}","${row.task_name.replace(/"/g, '""')}","${row.time_range}"`)].join("\n");
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -180,7 +182,7 @@ function App() {
     a.download = `focusflow_export_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '')}.csv`;
     a.click();
     setHistory([]); localStorage.removeItem('pomodoroHistory');
-    alert("CSVを出力し、履歴をクリアしました。");
+    setCustomAlert("CSVを出力し、\n履歴をクリアしました。");
   };
 
   return (
@@ -195,7 +197,17 @@ function App() {
         </div>
       )}
 
-      {viewMode === 'main' && <div className="title-bar">FocusFlow - Pomodoro Timer</div>}
+      {/* カスタムアラートダイアログ（見切れ対策） */}
+      {customAlert && (
+        <div className="custom-alert-overlay">
+          <div className="custom-alert-box">
+            <p className="custom-alert-text">{customAlert}</p>
+            <button className="btn-alert-ok" onClick={() => setCustomAlert(null)}>OK</button>
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'main' && <div className="title-bar">FocusFlow</div>}
 
       <div className="main-content">
         {viewMode === 'main' && (
@@ -209,7 +221,7 @@ function App() {
             {activeTab === 'Timer' && (
               <div className="tab-content">
                 <div className="task-input-container">
-                  <p style={{ margin: '5px 0', fontSize: '12px' }}>作業内容 (Task Name)</p>
+                  <p style={{ margin: '5px 0', fontSize: '12px' }}>作業内容</p>
                   <input type="text" className="task-input" placeholder="例: 英語の勉強" value={taskName} onChange={(e) => setTaskName(e.target.value)} />
                 </div>
 
@@ -226,8 +238,8 @@ function App() {
 
                 {isStandalone && (
                   <div className="view-controls">
-                    <button className="btn-mini" onClick={() => setViewMode('mini')}>ミニ</button>
-                    <button className="btn-bar" onClick={() => setViewMode('bar')}>バー</button>
+                    <button className="btn-mini" onClick={() => setViewMode('mini')}>mini</button>
+                    <button className="btn-bar" onClick={() => setViewMode('bar')}>bar</button>
                   </div>
                 )}
                 
