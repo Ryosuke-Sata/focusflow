@@ -116,6 +116,8 @@ function App() {
   const [patInput, setPatInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const [isMobileOS, setIsMobileOS] = useState(false);
+
   useEffect(() => {
     const savedHistory = JSON.parse(localStorage.getItem('pomodoroHistory') || '[]');
     setHistory(savedHistory);
@@ -130,9 +132,15 @@ function App() {
     const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     setIsStandalone(checkStandalone);
 
-    // iOS (iPhone/iPad) 判定
+    // iOS と Android を明確に判定
     const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase()) || 
                         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroidDevice = /android/.test(window.navigator.userAgent.toLowerCase());
+    
+    // どちらかのOSであればフラグをオンにする
+    if (isIosDevice || isAndroidDevice) {
+      setIsMobileOS(true);
+    }
     
     // iOSかつブラウザ開いている場合のみ、iPhone用案内を出す
     if (isIosDevice && !checkStandalone) {
@@ -147,6 +155,58 @@ function App() {
 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
+
+  // 履歴から統計情報をリアルタイムに計算するロジック（useEffectの群れの少し下あたりに追加）
+  const stats = (() => {
+    const today = new Date().toLocaleDateString('ja-JP').replace(/\//g, '-');
+    let todayMins = 0; let todayCount = 0;
+    let weekMins = 0;
+    let totalMins = 0; let totalCount = history.length;
+
+    // 直近7日間のタイムスタンプ
+    const sevenDaysAgoDate = new Date();
+    sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 6);
+    sevenDaysAgoDate.setHours(0,0,0,0);
+    const sevenDaysAgo = sevenDaysAgoDate.getTime();
+
+    history.forEach(log => {
+      totalMins += log.duration_minutes;
+      if (log.date === today) {
+        todayMins += log.duration_minutes;
+        todayCount++;
+      }
+      const [year, month, day] = log.date.split('-');
+      const logDate = new Date(year, month - 1, day).getTime();
+      if (logDate >= sevenDaysAgo) {
+        weekMins += log.duration_minutes;
+      }
+    });
+
+    return { todayMins, todayCount, weekMins, totalMins, totalCount };
+  })();
+
+  // スマホのフチ（ステータスバーやセーフエリア）の色をモードに合わせて動的に変更する
+  useEffect(() => {
+    const defaultColor = '#2b2b2b';
+    const blackColor = '#000000';
+    
+    // スマホOSで、かつminiモード（またはbarモード）の時だけ真っ黒にする
+    const isBlackMode = isMobileOS && (viewMode === 'mini' || viewMode === 'bar');
+    const targetColor = isBlackMode ? blackColor : defaultColor;
+
+    // 1. 画面の裏側（大元のbody）の背景色を変更
+    document.body.style.backgroundColor = targetColor;
+
+    // 2. スマホのステータスバー（時計やバッテリーの領域）の色をメタタグで変更
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement('meta');
+      metaThemeColor.name = "theme-color";
+      document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.content = targetColor;
+
+  }, [viewMode, isMobileOS]);
 
   const autoPull = async (token, localHistory) => {
     if (!navigator.onLine) return; 
@@ -372,7 +432,7 @@ function App() {
   };
 
   return (
-    <div className={`app-container ${viewMode}`}>
+    <div className={`app-container ${viewMode} ${isMobileOS ? 'is-mobile-os' : ''}`}>
       
       {/* PC / Android 用のインストールプロンプト */}
       {deferredPrompt && !isStandalone && !showIosPrompt && (
@@ -466,17 +526,61 @@ function App() {
             {/* History タブ */}
             {activeTab === 'History' && (
               <div className="tab-content history">
-                <h3 style={{ textAlign: 'center', marginTop: '0' }}>作業履歴</h3>
-                <div className="history-scroll">
-                  {history.length === 0 ? <p style={{ textAlign: 'center', color: 'gray', marginTop: '20px' }}>履歴なし</p> : history.map((log) => (
-                    <div key={log.id} className="history-item">
-                      <span className="history-date">{log.date.slice(5)} {log.time_range}</span>
-                      <span className="history-task">{log.task_name}</span>
-                      <span className="history-mins">{log.duration_minutes}分</span>
-                    </div>
-                  ))}
+                <h3 style={{ textAlign: 'center', marginTop: '0', marginBottom: '15px' }}>ダッシュボード</h3>
+                
+                {/* 統計情報のカード */}
+                <div className="stats-container">
+                  <div className="stat-card">
+                    <span className="stat-label">今日の集中</span>
+                    <span className="stat-value">{stats.todayMins} <small>分</small></span>
+                    <span className="stat-sub">{stats.todayCount} 回</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">直近7日間</span>
+                    <span className="stat-value">{stats.weekMins} <small>分</small></span>
+                    <span className="stat-sub">作業時間</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">累計</span>
+                    <span className="stat-value">{stats.totalMins} <small>分</small></span>
+                    <span className="stat-sub">{stats.totalCount} 回</span>
+                  </div>
                 </div>
-                <button className="btn-export" onClick={exportCSV}>CSV出力</button>
+
+                {/* 履歴一覧（折りたたみ式） */}
+                <details className="history-details">
+                  <summary className="summary-btn history-summary">
+                    詳細な履歴一覧を見る ▼
+                  </summary>
+                  <div className="history-scroll">
+                    {history.length === 0 ? <p style={{ textAlign: 'center', color: 'gray', marginTop: '20px' }}>履歴なし</p> : history.map((log) => (
+                      <div key={log.id} className="history-item">
+                        <span className="history-date">{log.date.slice(5)} {log.time_range}</span>
+                        <span className="history-task">{log.task_name}</span>
+                        <span className="history-mins">{log.duration_minutes}分</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+
+                {/* CSV出力ボタンの分岐配置 */}
+                {githubToken ? (
+                  <details style={{ marginTop: '20px', borderTop: '1px solid #444', paddingTop: '15px' }}>
+                    <summary className="summary-btn" style={{color: '#666', textAlign: 'center', display: 'block'}}>
+                      高度な操作 ▼
+                    </summary>
+                    <div style={{ padding: '10px', background: '#222', borderRadius: '5px', marginTop: '10px' }}>
+                      <p style={{fontSize: '11px', color: '#888', margin: '0 0 10px 0', textAlign: 'center'}}>
+                        ※Gist同期中は自動保存されるため通常は不要です。
+                      </p>
+                      <button className="btn-export" style={{ backgroundColor: '#444', width: '100%', color: '#aaa' }} onClick={exportCSV}>
+                        CSVファイルとして保存
+                      </button>
+                    </div>
+                  </details>
+                ) : (
+                  <button className="btn-export" style={{ marginTop: '15px' }} onClick={exportCSV}>CSV出力（履歴をクリア）</button>
+                )}
               </div>
             )}
 

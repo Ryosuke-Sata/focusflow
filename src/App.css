@@ -120,6 +120,61 @@ html, body {
 .btn-export { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; transition: 0.2s; }
 .btn-export:hover { background: #1b5e20; }
 
+/* --- ダッシュボード（統計情報）UI --- */
+.stats-container {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+.stat-card {
+  background: #333;
+  padding: 15px 10px;
+  border-radius: 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+}
+.stat-label {
+  font-size: 11px;
+  color: #a0a0a0;
+  margin-bottom: 5px;
+  white-space: nowrap;
+}
+.stat-value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #3B8ED0;
+  line-height: 1;
+  white-space: nowrap;
+}
+.stat-value small {
+  font-size: 12px;
+  color: #888;
+  margin-left: 2px;
+}
+.stat-sub {
+  font-size: 10px;
+  color: #666;
+  margin-top: 5px;
+}
+
+.history-summary {
+  font-size: 14px;
+  margin: 15px 0 10px 0;
+  text-align: center;
+  display: block;
+  background: #333;
+  padding: 10px;
+  border-radius: 5px;
+}
+.history-details summary::-webkit-details-marker {
+  display: none; /* デフォルトの三角形アイコンを消す */
+}
+
 /* Settings タブ */
 .settings-content {
   font-size: 13px;
@@ -383,4 +438,68 @@ html, body {
 .ios-instruction b {
   color: white;
   font-weight: bold;
+}
+
+/* ==========================================================================
+   2. スマホOS（iOS / Android）専用レイアウト
+   ========================================================================== */
+
+/* スマホOSの時は、バーモードにするためのボタンを抹消して遷移不可にする */
+.is-mobile-os .btn-bar {
+  display: none !important;
+}
+
+/* 有機EL対応：スマホOS版のminiモード・コンテナ背景のみを完全な漆黒にする */
+.is-mobile-os.mini,
+.is-mobile-os.mini .main-content,
+.is-mobile-os .mini-content {
+  background-color: #000000 !important;
+}
+
+/* スマホOS版miniモード専用：視認性を高めるためのUI超拡大 */
+.is-mobile-os .time-display-mini {
+  font-size: 96px !important;  
+  color: #b0b0b0 !important;   
+  line-height: 1.1 !important;
+}
+
+.is-mobile-os .clock-mini {
+  font-size: 18px !important;
+  color: #555 !important;
+  margin-bottom: 8px !important;
+}
+
+.is-mobile-os .mini-task {
+  font-size: 20px !important;  
+  color: #777 !important;
+  max-width: 280px !important; 
+  margin-bottom: 15px !important;
+}
+
+.is-mobile-os .mini-controls {
+  gap: 55px !important;        
+  margin: 25px 0 !important;
+}
+
+.is-mobile-os .mini-controls .icon-btn svg {
+  width: 42px !important;      
+  height: 42px !important;
+}
+
+.is-mobile-os .btn-expand {
+  font-size: 16px !important;  
+  padding: 12px 24px !important;
+  background: transparent !important;
+  border-color: #222 !important;
+  color: #666 !important;
+}
+
+.is-mobile-os .stats-container {
+  gap: 6px;
+}
+.is-mobile-os .stat-card {
+  padding: 12px 5px;
+}
+.is-mobile-os .stat-value {
+  font-size: 18px; /* スマホではカードが狭いので少し文字を小さくして収める */
 }
