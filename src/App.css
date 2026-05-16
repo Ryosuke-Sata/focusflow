@@ -25,8 +25,8 @@ html, body {
   flex-direction: column;
   position: relative;
   box-sizing: border-box;
-  width: 100vw;
-  height: 100vh;
+  width: 100vw; /* どのモードでも常にウィンドウ全体を満たす */
+  height: 100vh; /* どのモードでも常にウィンドウ全体を満たす */
 }
 
 /* 通常（Main）モードの装飾（ブラウザでの閲覧時のみ影と角丸をつける） */
@@ -72,9 +72,9 @@ html, body {
 /* 時計 */
 .clock { align-self: flex-end; color: gray; font-size: 24px; font-weight: bold; margin-bottom: 10px; }
 
-/* タブ UI */
+/* タブ UI (3タブになったので文字サイズを少し縮小) */
 .tabs { display: flex; width: 100%; border-bottom: 2px solid #444; margin-bottom: 20px; }
-.tabs button { flex: 1; padding: 10px; background: none; border: none; color: gray; font-size: 16px; cursor: pointer; transition: 0.2s; }
+.tabs button { flex: 1; padding: 10px; background: none; border: none; color: gray; font-size: 14px; cursor: pointer; transition: 0.2s; }
 .tabs button.active { color: white; border-bottom: 3px solid #3B8ED0; font-weight: bold; }
 
 /* フォームと入力欄 */
@@ -119,6 +119,91 @@ html, body {
 .history-mins { color: #3B8ED0; font-weight: bold; }
 .btn-export { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; transition: 0.2s; }
 .btn-export:hover { background: #1b5e20; }
+
+/* Settings タブ */
+.settings-content {
+  font-size: 13px;
+  color: #ccc;
+  overflow-y: auto;
+  flex: 1;
+}
+.settings-section {
+  background: #333;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+.settings-section h4 {
+  margin: 0 0 15px 0;
+  color: white;
+  text-align: center;
+}
+.settings-desc {
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+.pat-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #222;
+  color: white;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+.btn-save-pat {
+  background: #3B8ED0;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  width: 100%;
+  transition: 0.2s;
+}
+.btn-save-pat:hover { background: #2a7bb8; }
+
+.pat-success-box {
+  text-align: center;
+}
+.pat-success-text {
+  color: #4caf50;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+.sync-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.sync-controls button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 4px;
+  border: none;
+  background: #4B4B4B;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.sync-controls button:hover:not(:disabled) {
+  background: #5a5a5a;
+}
+.sync-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.summary-btn {
+  cursor: pointer;
+  color: #a0a0a0;
+  font-size: 12px;
+  transition: 0.2s;
+}
+.summary-btn:hover { color: white; }
 
 /* Miniモードの垂直センターと美しい余白（パディング） */
 .mini-content {
@@ -179,6 +264,7 @@ html, body {
 }
 .btn-expand:hover { background: rgba(255,255,255,0.1); color: white; }
 
+/* PWAインストール通知 - 黒を基調とした色合いに変更 */
 .install-prompt {
   position: absolute;
   top: 15px;
@@ -205,18 +291,19 @@ html, body {
 .btn-close { background-color: transparent; color: #a0a0a0; border: 1px solid #444 !important; }
 .btn-close:hover { color: white; border-color: #666 !important; }
 
+/* 見切れ対策用のカスタムアラート＆確認ダイアログ */
 .custom-alert-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  padding: 15px;
+  padding: 20px;
   box-sizing: border-box;
 }
 
@@ -224,35 +311,54 @@ html, body {
   background-color: #222;
   border: 1px solid #444;
   border-radius: 8px;
-  padding: 15px;
+  padding: 20px;
   width: 100%;
-  max-width: 190px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  max-width: 300px; /* ★ 190pxから300pxに大幅に拡大し、ゆとりを持たせました */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
   text-align: center;
   box-sizing: border-box;
 }
 
 .custom-alert-text {
-  font-size: 12px;
+  font-size: 13px; /* 文字も少し読みやすく大きくしました */
   color: #fff;
-  margin: 0 0 12px 0;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+  white-space: pre-wrap; 
+  word-wrap: break-word; 
 }
 
 .btn-alert-ok {
   background-color: #3B8ED0;
   color: white;
   border: none;
-  padding: 6px 20px;
+  padding: 8px 24px; /* ボタンの押しやすさ（余白）を復活 */
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.2s;
+  white-space: nowrap; 
 }
 
 .btn-alert-ok:hover {
   background-color: #2a7bb8;
+}
+
+.btn-alert-cancel {
+  background-color: transparent;
+  color: #a0a0a0;
+  border: 1px solid #555;
+  padding: 8px 16px; /* ボタンの押しやすさ（余白）を復活 */
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap; 
+}
+
+.btn-alert-cancel:hover {
+  color: white;
+  border-color: #888;
 }

@@ -29,6 +29,66 @@ const ExpandIcon = () => (
   </svg>
 );
 
+// --- GitHub Gist API 連携関数 ---
+const GIST_DESC = "FocusFlow Data";
+const FILENAME = "focusflow_history.json";
+
+const getHeaders = (token) => ({
+  "Accept": "application/vnd.github.v3+json",
+  "Authorization": `token ${token}`
+});
+
+const findOrCreateGist = async (token, contentStr = null) => {
+  const res = await fetch("https://api.github.com/gists", { headers: getHeaders(token) });
+  if (!res.ok) throw new Error("PATが無効、またはAPIの制限です。");
+  const gists = await res.json();
+  const target = gists.find(g => g.description === GIST_DESC);
+
+  if (target) return target.id;
+
+  if (!contentStr) contentStr = "[]";
+  const createRes = await fetch("https://api.github.com/gists", {
+    method: "POST",
+    headers: getHeaders(token),
+    body: JSON.stringify({
+      description: GIST_DESC,
+      public: false,
+      files: { [FILENAME]: { content: contentStr } }
+    })
+  });
+  if (!createRes.ok) throw new Error("Gistの作成に失敗しました。");
+  const newGist = await createRes.json();
+  return newGist.id;
+};
+
+const pullFromGist = async (token) => {
+  const gistId = await findOrCreateGist(token);
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: getHeaders(token) });
+  if (!res.ok) throw new Error("データの取得に失敗しました。");
+  const gist = await res.json();
+  const file = gist.files[FILENAME];
+  if (!file || !file.content) return [];
+  try { return JSON.parse(file.content); } catch { return []; }
+};
+
+const pushToGist = async (token, historyData) => {
+  const contentStr = JSON.stringify(historyData);
+  const gistId = await findOrCreateGist(token, contentStr);
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: "PATCH",
+    headers: getHeaders(token),
+    body: JSON.stringify({ files: { [FILENAME]: { content: contentStr } } })
+  });
+  if (!res.ok) throw new Error("データの保存に失敗しました。");
+};
+
+const mergeHistory = (local, remote) => {
+  const combined = [...local, ...remote];
+  const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+  return unique.sort((a, b) => b.id - a.id).slice(0, 50); // 最新50件
+};
+
+
 function App() {
   const [viewMode, setViewMode] = useState('main'); 
   const [activeTab, setActiveTab] = useState('Timer'); 
@@ -46,37 +106,58 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
 
-  // 見切れ対策用のカスタムアラート状態
   const [customAlert, setCustomAlert] = useState(null);
+  const [customConfirm, setCustomConfirm] = useState(null);
+
+  // --- Gist 同期用の状態 ---
+  const [githubToken, setGithubToken] = useState('');
+  const [patInput, setPatInput] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const savedHistory = JSON.parse(localStorage.getItem('pomodoroHistory') || '[]');
     setHistory(savedHistory);
+
+    const savedToken = localStorage.getItem('focusflow_pat');
+    if (savedToken) {
+      setGithubToken(savedToken);
+      autoPull(savedToken, savedHistory);
+    }
 
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     setIsStandalone(checkStandalone);
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // --- ウィンドウサイズ設定（モード切替時のみ実行） ---
+  const autoPull = async (token, localHistory) => {
+    try {
+      setIsSyncing(true);
+      const remote = await pullFromGist(token);
+      if (remote.length > 0) {
+        const merged = mergeHistory(localHistory, remote);
+        setHistory(merged);
+        localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
+      }
+    } catch (e) {
+      console.error("自動同期エラー:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     if (!isStandalone) return;
-
     const setOptimalWindowSize = () => {
       if (viewMode === 'main') window.resizeTo(400, 750);
       else if (viewMode === 'mini') window.resizeTo(220, 260); 
       else if (viewMode === 'bar') window.resizeTo(520, 100); 
     };
-
     setOptimalWindowSize();
   }, [viewMode, isStandalone]);
 
@@ -142,6 +223,21 @@ function App() {
       const newHistory = [newLog, ...history].slice(0, 50);
       setHistory(newHistory);
       localStorage.setItem('pomodoroHistory', JSON.stringify(newHistory));
+
+      // --- Gistへ自動Push (自動統合ロジックへ修正) ---
+      if (githubToken) {
+        (async () => {
+          try {
+            const remote = await pullFromGist(githubToken);
+            const merged = mergeHistory(newHistory, remote);
+            setHistory(merged);
+            localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
+            await pushToGist(githubToken, merged);
+          } catch (e) {
+            console.error("作業完了時の自動同期エラー:", e);
+          }
+        })();
+      }
     }
     startTimeRef.current = null;
   };
@@ -173,16 +269,73 @@ function App() {
   };
 
   const exportCSV = () => {
-    if (history.length === 0) return setCustomAlert("出力する履歴データが\nありません");
-    
+    if (history.length === 0) return setCustomAlert("出力する履歴データが\nありません。");
     const csvContent = ["ID,Date,Minutes,Task Name,Time Range", ...history.map(row => `"${row.id}","${row.date}","${row.duration_minutes}","${row.task_name.replace(/"/g, '""')}","${row.time_range}"`)].join("\n");
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `focusflow_export_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '')}.csv`;
     a.click();
-    setHistory([]); localStorage.removeItem('pomodoroHistory');
-    setCustomAlert("CSVを出力し、\n履歴をクリアしました。");
+    
+    // PATの登録状態に応じて処理を分岐
+    if (githubToken) {
+      setCustomAlert("Gistの最新データを\nCSV出力しました。");
+    } else {
+      setHistory([]); 
+      localStorage.removeItem('pomodoroHistory');
+      setCustomAlert("CSVを出力し、\n履歴をクリアしました。");
+    }
+  };
+
+  // --- Settings用のアクション ---
+  const handleSavePat = () => {
+    if (!patInput) return;
+    setCustomConfirm({
+      message: "【最終確認】\nこのトークンに個人の機密情報が含まれていないこと、また権限が『gist』のみに制限されていることを確認しましたか？",
+      onConfirm: () => {
+        localStorage.setItem('focusflow_pat', patInput);
+        setGithubToken(patInput);
+        setPatInput('');
+        setCustomConfirm(null);
+        setCustomAlert("PATを保存しました。\nGistとの同期が有効になりました。");
+      }
+    });
+  };
+
+  const handleManualPull = async () => {
+    if (!githubToken) return;
+    try {
+      setIsSyncing(true);
+      const remote = await pullFromGist(githubToken);
+      const merged = mergeHistory(history, remote);
+      setHistory(merged);
+      localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
+      setCustomAlert("Gistから最新データを取得し、\n履歴を統合しました。");
+    } catch (e) {
+      setCustomAlert("エラーが発生しました:\n" + e.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleManualPush = async () => {
+    if (!githubToken) return;
+    try {
+      setIsSyncing(true);
+      // 保存する前に、Gist側のデータを一度取得してマージ（上書き消去の防止）
+      const remote = await pullFromGist(githubToken);
+      const merged = mergeHistory(history, remote);
+      setHistory(merged);
+      localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
+      
+      // 統合後のデータをアップロード
+      await pushToGist(githubToken, merged);
+      setCustomAlert("Gistの最新データと統合し、\nアップロードを完了しました。");
+    } catch (e) {
+      setCustomAlert("エラーが発生しました:\n" + e.message);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   return (
@@ -197,12 +350,25 @@ function App() {
         </div>
       )}
 
-      {/* カスタムアラートダイアログ（見切れ対策） */}
+      {/* カスタムアラート */}
       {customAlert && (
         <div className="custom-alert-overlay">
           <div className="custom-alert-box">
             <p className="custom-alert-text">{customAlert}</p>
             <button className="btn-alert-ok" onClick={() => setCustomAlert(null)}>OK</button>
+          </div>
+        </div>
+      )}
+
+      {/* カスタム確認ダイアログ */}
+      {customConfirm && (
+        <div className="custom-alert-overlay">
+          <div className="custom-alert-box">
+            <p className="custom-alert-text">{customConfirm.message}</p>
+            <div style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+              <button className="btn-alert-cancel" onClick={() => setCustomConfirm(null)}>キャンセル</button>
+              <button className="btn-alert-ok" onClick={customConfirm.onConfirm}>OK</button>
+            </div>
           </div>
         </div>
       )}
@@ -213,11 +379,14 @@ function App() {
         {viewMode === 'main' && (
           <div className="main-layout-inner">
             <div className="clock">{currentTime}</div>
+            
             <div className="tabs">
               <button className={activeTab === 'Timer' ? 'active' : ''} onClick={() => setActiveTab('Timer')}>Timer</button>
               <button className={activeTab === 'History' ? 'active' : ''} onClick={() => setActiveTab('History')}>History</button>
+              <button className={activeTab === 'Settings' ? 'active' : ''} onClick={() => setActiveTab('Settings')}>Settings</button>
             </div>
 
+            {/* Timer タブ */}
             {activeTab === 'Timer' && (
               <div className="tab-content">
                 <div className="task-input-container">
@@ -247,6 +416,7 @@ function App() {
               </div>
             )}
 
+            {/* History タブ */}
             {activeTab === 'History' && (
               <div className="tab-content history">
                 <h3 style={{ textAlign: 'center', marginTop: '0' }}>作業履歴</h3>
@@ -262,6 +432,58 @@ function App() {
                 <button className="btn-export" onClick={exportCSV}>CSV出力</button>
               </div>
             )}
+
+            {/* Settings タブ */}
+            {activeTab === 'Settings' && (
+              <div className="tab-content settings-content">
+                <div className="settings-section">
+                  <h4>GitHub Gist 同期設定</h4>
+                  
+                  {githubToken ? (
+                    <div className="pat-success-box">
+                      <p className="pat-success-text">✓ PATは設定済みです<br/>(セキュリティのため非表示)</p>
+                      
+                      <div className="sync-controls">
+                        <button onClick={handleManualPull} disabled={isSyncing}>
+                          {isSyncing ? '同期中...' : 'Gistから取得'}
+                        </button>
+                        <button onClick={handleManualPush} disabled={isSyncing}>
+                          {isSyncing ? '同期中...' : 'Gistへ保存'}
+                        </button>
+                      </div>
+
+                      <details style={{marginTop: '20px'}}>
+                        <summary className="summary-btn">PATを上書き再設定する</summary>
+                        <div style={{marginTop: '10px'}}>
+                          <input type="password" className="pat-input" placeholder="ghp_..." value={patInput} onChange={(e) => setPatInput(e.target.value)} />
+                          <button className="btn-save-pat" onClick={handleSavePat}>上書き保存</button>
+                        </div>
+                      </details>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="settings-desc">
+                        <p>複数端末で履歴を同期するには、GitHubのPersonal Access Token (PAT) を入力してください。</p>
+                        <ul style={{paddingLeft: '20px', margin: '10px 0'}}>
+                          <li>GitHubの <b>Developer Settings</b> から作成できます。</li>
+                          <li>権限(Scope)は必ず <b>gist</b> のみを選択してください。</li>
+                          <li>トークンはブラウザ内にのみ安全に保存されます。</li>
+                        </ul>
+                      </div>
+                      <input 
+                        type="password" 
+                        className="pat-input" 
+                        placeholder="ghp_..." 
+                        value={patInput} 
+                        onChange={(e) => setPatInput(e.target.value)} 
+                      />
+                      <button className="btn-save-pat" onClick={handleSavePat}>保存して同期を有効化</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -273,7 +495,7 @@ function App() {
               <button onClick={toggleTimer} className="icon-btn">{isRunning ? <PauseIcon /> : <PlayIcon />}</button>
               <button onClick={resetTimer} className="icon-btn"><StopIcon /></button>
             </div>
-            <button className="btn-expand" onClick={() => setViewMode('main')}><ExpandIcon /> 拡大</button>
+            <button className="btn-expand" onClick={() => setViewMode('main')}><ExpandIcon /> mini</button>
           </div>
         )}
 
