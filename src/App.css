@@ -6,15 +6,14 @@ html, body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background-color: #2b2b2b; /* 背景全体をアプリのベース色（グレー）に統一して黒い境目をなくす */
+  background-color: #2b2b2b;
 }
 
 #root {
   width: 100%;
   height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: block; /* ★ 全ての元凶だった flex 中央寄せを完全削除！ */
+  position: relative;
 }
 
 /* アプリコンテナ */
@@ -25,17 +24,21 @@ html, body {
   flex-direction: column;
   position: relative;
   box-sizing: border-box;
-  width: 100vw; /* どのモードでも常にウィンドウ全体を満たす */
-  height: 100vh; /* どのモードでも常にウィンドウ全体を満たす */
+  width: 100vw; 
+  height: 100vh; 
 }
 
-/* 通常（Main）モードの装飾（ブラウザでの閲覧時のみ影と角丸をつける） */
+/* 通常（Main）モードの装飾（PC閲覧時用） */
 @media (display-mode: browser) {
   .app-container.main {
     max-width: 400px;
     max-height: 700px;
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* ★ PC版の中央寄せは絶対配置で行う */
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    margin: auto;
   }
 }
 
@@ -444,6 +447,21 @@ html, body {
    2. スマホOS（iOS / Android）専用レイアウト
    ========================================================================== */
 
+
+/* スマホOSの時だけ、アプリを画面の左上（座標0,0）に強制配置 */
+.app-container.is-mobile-os {
+  position: absolute !important; 
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  /* ★ iOS横画面のカメラ穴や余白を避ける特効薬 */
+  padding-left: env(safe-area-inset-left) !important;
+  padding-right: env(safe-area-inset-right) !important;
+}
+
 /* スマホOSの時は、バーモードにするためのボタンを抹消して遷移不可にする */
 .is-mobile-os .btn-bar {
   display: none !important;
@@ -502,4 +520,160 @@ html, body {
 }
 .is-mobile-os .stat-value {
   font-size: 18px; /* スマホではカードが狭いので少し文字を小さくして収める */
+}
+
+/* ==========================================================================
+   3. スマホOS専用 横画面（Landscape）レイアウト
+   （※PCには一切影響しません。スマホを横に傾けた時だけ発動します）
+   ========================================================================== */
+@media (orientation: landscape) {
+
+  .app-container.is-mobile-os {
+  height: 100dvh !important;
+  }
+  
+  /* ====================
+     【 Mainモードの横画面対応 】
+     時計・タブを左側に、コンテンツを右側に配置する専用の2ペインレイアウト
+     ==================== */
+     
+  /* ★追加：タイトルバーの高さ分を正しく引き算し、画面外への押し出しを防ぐ */
+  .is-mobile-os .main-content {
+    min-height: 0 !important; 
+  }
+
+  .is-mobile-os .main-layout-inner {
+    display: grid !important;
+    grid-template-columns: 80px 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    grid-template-areas: 
+      "clock content"
+      "tabs content" !important;
+    gap: 15px !important;
+    padding: 10px !important;
+    min-height: 0 !important; /* ★中身が枠を押し広げるのを防ぐ */
+    height: 100% !important;
+  }
+  
+  .is-mobile-os .clock {
+    grid-area: clock !important;
+    font-size: 14px !important;
+    text-align: center !important;
+    align-self: center !important;
+    margin-bottom: 0 !important;
+  }
+  
+  .is-mobile-os .tabs {
+    grid-area: tabs !important;
+    flex-direction: column !important;
+    border-bottom: none !important;
+    border-right: 1px solid #444 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  .is-mobile-os .tabs button {
+    border-bottom: none !important;
+    border-left: 3px solid transparent !important;
+    padding: 15px 5px !important;
+    text-align: center !important;
+    font-size: 12px !important;
+  }
+  
+  .is-mobile-os .tabs button.active {
+    border-bottom: none !important;
+    border-left-color: #3B8ED0 !important;
+  }
+  
+  /* ★右側のコンテンツエリアだけをスクロール可能にする */
+  .is-mobile-os .tab-content {
+    grid-area: content !important;
+    overflow-y: auto !important; 
+    padding-right: 10px !important;
+    height: 100% !important;
+    min-height: 0 !important; 
+    padding-bottom: 20px !important; /* スクロールの一番下にゆとりを持たせる */
+  }
+  
+  /* Timerタブ内の要素を画面の高さ(vh)に連動させてはみ出しを防ぐ */
+  .is-mobile-os .time-display {
+    font-size: 20vh !important; 
+    margin: 2vh 0 !important;
+  }
+  .is-mobile-os .task-input {
+    padding: 8px !important;
+  }
+  .is-mobile-os .mode-segments {
+    margin-bottom: 2vh !important;
+  }
+  .is-mobile-os .controls {
+    margin-top: 2vh !important;
+  }
+
+/* ====================
+     【 Miniモードの横画面対応 】
+     絶対配置（absolute）を使ってタイマー数字を完全なド真ん中に固定する
+     ==================== */
+  .is-mobile-os .mini-content {
+    position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 1. タイマー数字（最も重要）を画面の完全な中心に固定 */
+  .is-mobile-os .time-display-mini {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 35vh !important; /* 絶対に見切れないサイズ */
+    line-height: 1 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* 2. タスク名は画面上部の中央に配置 */
+  .is-mobile-os .mini-task {
+    position: absolute !important;
+    top: 8vh !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    font-size: 14px !important;
+    margin: 0 !important;
+    width: 90% !important;
+    text-align: center !important;
+  }
+
+  /* 3. 再生/停止ボタンはタイマーの下部に配置 */
+  .is-mobile-os .mini-controls {
+    position: absolute !important;
+    bottom: 8vh !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    margin: 0 !important;
+    gap: 40px !important;
+    display: flex !important;
+  }
+
+  .is-mobile-os .mini-controls .icon-btn svg {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  /* 4. 拡大（戻る）ボタンは画面の右下に配置 */
+  .is-mobile-os .btn-expand {
+    position: absolute !important;
+    bottom: 5vh !important;
+    right: 5vw !important;
+    font-size: 12px !important;
+    padding: 8px 16px !important;
+    margin: 0 !important;
+  }
+
+  /* 5. 現在時刻は横画面では狭いので非表示にしてスッキリさせる */
+  .is-mobile-os .clock-mini {
+    display: none !important;
+  }
 }

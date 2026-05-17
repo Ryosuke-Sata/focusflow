@@ -29,6 +29,23 @@ const ExpandIcon = () => (
   </svg>
 );
 
+// リロード（取得）アイコン
+const RefreshIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10"></polyline>
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+  </svg>
+);
+
+// 上矢印（送信）アイコン
+const UploadIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="17 8 12 3 7 8"></polyline>
+    <line x1="12" y1="3" x2="12" y2="15"></line>
+  </svg>
+);
+
 // --- GitHub Gist API 連携関数 ---
 const GIST_DESC = "FocusFlow Data";
 const FILENAME = "focusflow_history.json";
@@ -40,7 +57,7 @@ const getHeaders = (token) => ({
 
 const findOrCreateGist = async (token, contentStr = null) => {
   const res = await fetch("https://api.github.com/gists", { headers: getHeaders(token) });
-  if (!res.ok) throw new Error("PATが無効、またはAPIの制限です。");
+  if (!res.ok) throw new Error("PATが無効，またはAPIの制限です．");
   const gists = await res.json();
   const target = gists.find(g => g.description === GIST_DESC);
 
@@ -56,7 +73,7 @@ const findOrCreateGist = async (token, contentStr = null) => {
       files: { [FILENAME]: { content: contentStr } }
     })
   });
-  if (!createRes.ok) throw new Error("Gistの作成に失敗しました。");
+  if (!createRes.ok) throw new Error("Gistの作成に失敗しました．");
   const newGist = await createRes.json();
   return newGist.id;
 };
@@ -64,7 +81,7 @@ const findOrCreateGist = async (token, contentStr = null) => {
 const pullFromGist = async (token) => {
   const gistId = await findOrCreateGist(token);
   const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: getHeaders(token) });
-  if (!res.ok) throw new Error("データの取得に失敗しました。");
+  if (!res.ok) throw new Error("データの取得に失敗しました．");
   const gist = await res.json();
   const file = gist.files[FILENAME];
   if (!file || !file.content) return [];
@@ -79,7 +96,7 @@ const pushToGist = async (token, historyData) => {
     headers: getHeaders(token),
     body: JSON.stringify({ files: { [FILENAME]: { content: contentStr } } })
   });
-  if (!res.ok) throw new Error("データの保存に失敗しました。");
+  if (!res.ok) throw new Error("データの保存に失敗しました．");
 };
 
 const mergeHistory = (local, remote) => {
@@ -142,7 +159,7 @@ function App() {
       setIsMobileOS(true);
     }
     
-    // iOSかつブラウザ開いている場合のみ、iPhone用案内を出す
+    // iOSかつブラウザ開いている場合のみ，iPhone用案内を出す
     if (isIosDevice && !checkStandalone) {
       setShowIosPrompt(true);
     }
@@ -190,7 +207,7 @@ function App() {
     const defaultColor = '#2b2b2b';
     const blackColor = '#000000';
     
-    // スマホOSで、かつminiモード（またはbarモード）の時だけ真っ黒にする
+    // スマホOSで，かつminiモード（またはbarモード）の時だけ真っ黒にする
     const isBlackMode = isMobileOS && (viewMode === 'mini' || viewMode === 'bar');
     const targetColor = isBlackMode ? blackColor : defaultColor;
 
@@ -227,7 +244,7 @@ function App() {
 
   useEffect(() => {
     if (!isStandalone) return;
-    // スマホではリサイズ命令は無視されるため、PC版のPWAのみで機能します
+    // スマホではリサイズ命令は無視されるため，PC版のPWAのみで機能します
     const setOptimalWindowSize = () => {
       if (viewMode === 'main') window.resizeTo(400, 750);
       else if (viewMode === 'mini') window.resizeTo(220, 260); 
@@ -283,7 +300,7 @@ function App() {
     playAlarm();
     const isFocus = timerMode.includes('Focus');
     if (Notification.permission === 'granted') {
-      new Notification('FocusFlow', { body: isFocus ? "お疲れ様でした！休憩しましょう。" : "休憩終了！作業に戻りましょう。" });
+      new Notification('FocusFlow', { body: isFocus ? "お疲れ様でした！休憩しましょう．" : "休憩終了！作業に戻りましょう．" });
     }
 
     if (isFocus) {
@@ -302,7 +319,7 @@ function App() {
 
       if (githubToken) {
         if (!navigator.onLine) {
-          setCustomAlert("現在オフラインのため、\nGistとの同期は一時停止しています。\n（データは手元に保存済みです）");
+          setCustomAlert("現在オフラインのため，\nGistとの同期は一時停止しています．\n（データは手元に保存済みです）");
         } else {
           (async () => {
             try {
@@ -348,7 +365,7 @@ function App() {
   };
 
   const exportCSV = () => {
-    if (history.length === 0) return setCustomAlert("出力する履歴データが\nありません。");
+    if (history.length === 0) return setCustomAlert("出力する履歴データが\nありません．");
     
     setCustomConfirm({
       message: githubToken 
@@ -365,11 +382,11 @@ function App() {
         setCustomConfirm(null); 
         
         if (githubToken) {
-          setCustomAlert("Gistの最新データを\nCSV出力しました。");
+          setCustomAlert("Gistの最新データを\nCSV出力しました．");
         } else {
           setHistory([]); 
           localStorage.removeItem('pomodoroHistory');
-          setCustomAlert("CSVを出力し、\n履歴をクリアしました。");
+          setCustomAlert("CSVを出力し，\n履歴をクリアしました．");
         }
       }
     });
@@ -378,13 +395,13 @@ function App() {
   const handleSavePat = () => {
     if (!patInput) return;
     setCustomConfirm({
-      message: "【最終確認】\nこのトークンに個人の機密情報が含まれていないこと、また権限が『gist』のみに制限されていることを確認しましたか？",
+      message: "【最終確認】\nこのトークンに個人の機密情報が含まれていないこと，また権限が『gist』のみに制限されていることを確認しましたか？",
       onConfirm: () => {
         localStorage.setItem('focusflow_pat', patInput);
         setGithubToken(patInput);
         setPatInput('');
         setCustomConfirm(null);
-        setCustomAlert("PATを保存しました。\nGistとの同期が有効になりました。");
+        setCustomAlert("PATを保存しました．\nGistとの同期が有効になりました．");
       }
     });
   };
@@ -392,7 +409,7 @@ function App() {
   const handleManualPull = async () => {
     if (!githubToken) return;
     if (!navigator.onLine) {
-      return setCustomAlert("現在オフラインのため、\nネットワーク接続を確認してください。");
+      return setCustomAlert("現在オフラインのため，\nネットワーク接続を確認してください．");
     }
     
     try {
@@ -401,7 +418,7 @@ function App() {
       const merged = mergeHistory(history, remote);
       setHistory(merged);
       localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
-      setCustomAlert("Gistから最新データを取得し、\n履歴を統合しました。");
+      setCustomAlert("Gistから最新データを取得し，\n履歴を統合しました．");
     } catch (e) {
       setCustomAlert("エラーが発生しました:\n" + e.message);
     } finally {
@@ -412,7 +429,7 @@ function App() {
   const handleManualPush = async () => {
     if (!githubToken) return;
     if (!navigator.onLine) {
-      return setCustomAlert("現在オフラインのため、\nネットワーク接続を確認してください。");
+      return setCustomAlert("現在オフラインのため，\nネットワーク接続を確認してください．");
     }
 
     try {
@@ -423,7 +440,7 @@ function App() {
       localStorage.setItem('pomodoroHistory', JSON.stringify(merged));
       
       await pushToGist(githubToken, merged);
-      setCustomAlert("Gistの最新データと統合し、\nアップロードを完了しました。");
+      setCustomAlert("Gistの最新データと統合し，\nアップロードを完了しました．");
     } catch (e) {
       setCustomAlert("エラーが発生しました:\n" + e.message);
     } finally {
@@ -449,9 +466,9 @@ function App() {
       {showIosPrompt && !isStandalone && (
         <div className="install-prompt ios-prompt">
           <p className="ios-instruction">
-            アプリとして利用するには、下部の<br />
+            アプリとして利用するには，下部の<br />
             <b>[共有ボタン]</b> から <b>[ホーム画面に追加]</b><br />
-            をタップしてください。
+            をタップしてください．
           </p>
           <button className="btn-close" style={{width: '100%'}} onClick={() => setShowIosPrompt(false)}>閉じる</button>
         </div>
@@ -526,7 +543,33 @@ function App() {
             {/* History タブ */}
             {activeTab === 'History' && (
               <div className="tab-content history">
-                <h3 style={{ textAlign: 'center', marginTop: '0', marginBottom: '15px' }}>ダッシュボード</h3>
+                {/* ★修正：ダッシュボードのタイトルと、小さな同期アイコンボタンを横並びにする */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0 }}>ダッシュボード</h3>
+                  
+                  {githubToken && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        className="icon-btn" 
+                        style={{ background: '#333', borderRadius: '6px', padding: '8px', opacity: isSyncing ? 0.5 : 1 }} 
+                        onClick={handleManualPull} 
+                        disabled={isSyncing} 
+                        title="Gistからデータを取得（同期）"
+                      >
+                        <RefreshIcon />
+                      </button>
+                      <button 
+                        className="icon-btn" 
+                        style={{ background: '#333', borderRadius: '6px', padding: '8px', opacity: isSyncing ? 0.5 : 1 }} 
+                        onClick={handleManualPush} 
+                        disabled={isSyncing} 
+                        title="手元のデータをGistに送信"
+                      >
+                        <UploadIcon />
+                      </button>
+                    </div>
+                  )}
+                </div>
                 
                 {/* 統計情報のカード */}
                 <div className="stats-container">
@@ -571,7 +614,7 @@ function App() {
                     </summary>
                     <div style={{ padding: '10px', background: '#222', borderRadius: '5px', marginTop: '10px' }}>
                       <p style={{fontSize: '11px', color: '#888', margin: '0 0 10px 0', textAlign: 'center'}}>
-                        ※Gist同期中は自動保存されるため通常は不要です。
+                        ※Gist同期中は自動保存されるため通常は不要です．
                       </p>
                       <button className="btn-export" style={{ backgroundColor: '#444', width: '100%', color: '#aaa' }} onClick={exportCSV}>
                         CSVファイルとして保存
@@ -593,15 +636,6 @@ function App() {
                   {githubToken ? (
                     <div className="pat-success-box">
                       <p className="pat-success-text">✓ PATは設定済みです<br/>(セキュリティのため非表示)</p>
-                      
-                      <div className="sync-controls">
-                        <button onClick={handleManualPull} disabled={isSyncing}>
-                          {isSyncing ? '同期中...' : 'Gistから取得'}
-                        </button>
-                        <button onClick={handleManualPush} disabled={isSyncing}>
-                          {isSyncing ? '同期中...' : 'Gistへ保存'}
-                        </button>
-                      </div>
 
                       <details style={{marginTop: '20px'}}>
                         <summary className="summary-btn">PATを上書き再設定する</summary>
@@ -614,11 +648,11 @@ function App() {
                   ) : (
                     <>
                       <div className="settings-desc">
-                        <p>複数端末で履歴を同期するには、GitHubのPersonal Access Tokenを入力してください。</p>
+                        <p>複数端末で履歴を同期するには，GitHubのPersonal Access Tokenを入力してください．</p>
                         <ul style={{paddingLeft: '20px', margin: '10px 0'}}>
-                          <li>GitHubの <b>[Settings]</b> ➔ <b>[Developer settings]</b> ➔ <b>[Personal access tokens]</b> ➔ <b>[Tokens (classic)]</b> から作成できます。</li>
-                          <li>権限は必ず <b>[gist]</b> のみを選択してください。</li>
-                          <li>トークンはブラウザ内にのみ保存されます。</li>
+                          <li>GitHubの <b>[Settings]</b> ➔ <b>[Developer settings]</b> ➔ <b>[Personal access tokens]</b> ➔ <b>[Tokens (classic)]</b> <br /> から作成できます．</li>
+                          <li>権限は必ず <b>[gist]</b> のみを選択してください．</li>
+                          <li>トークンはブラウザ内にのみ保存されます．</li>
                         </ul>
                       </div>
                       <input 
