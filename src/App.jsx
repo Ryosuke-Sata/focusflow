@@ -29,6 +29,23 @@ const ExpandIcon = () => (
   </svg>
 );
 
+// リロード（取得）アイコン
+const RefreshIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10"></polyline>
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+  </svg>
+);
+
+// 上矢印（送信）アイコン
+const UploadIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="17 8 12 3 7 8"></polyline>
+    <line x1="12" y1="3" x2="12" y2="15"></line>
+  </svg>
+);
+
 // --- GitHub Gist API 連携関数 ---
 const GIST_DESC = "FocusFlow Data";
 const FILENAME = "focusflow_history.json";
@@ -526,7 +543,33 @@ function App() {
             {/* History タブ */}
             {activeTab === 'History' && (
               <div className="tab-content history">
-                <h3 style={{ textAlign: 'center', marginTop: '0', marginBottom: '15px' }}>ダッシュボード</h3>
+                {/* ★修正：ダッシュボードのタイトルと、小さな同期アイコンボタンを横並びにする */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0 }}>ダッシュボード</h3>
+                  
+                  {githubToken && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        className="icon-btn" 
+                        style={{ background: '#333', borderRadius: '6px', padding: '8px', opacity: isSyncing ? 0.5 : 1 }} 
+                        onClick={handleManualPull} 
+                        disabled={isSyncing} 
+                        title="Gistからデータを取得（同期）"
+                      >
+                        <RefreshIcon />
+                      </button>
+                      <button 
+                        className="icon-btn" 
+                        style={{ background: '#333', borderRadius: '6px', padding: '8px', opacity: isSyncing ? 0.5 : 1 }} 
+                        onClick={handleManualPush} 
+                        disabled={isSyncing} 
+                        title="手元のデータをGistに送信"
+                      >
+                        <UploadIcon />
+                      </button>
+                    </div>
+                  )}
+                </div>
                 
                 {/* 統計情報のカード */}
                 <div className="stats-container">
@@ -593,15 +636,6 @@ function App() {
                   {githubToken ? (
                     <div className="pat-success-box">
                       <p className="pat-success-text">✓ PATは設定済みです<br/>(セキュリティのため非表示)</p>
-                      
-                      <div className="sync-controls">
-                        <button onClick={handleManualPull} disabled={isSyncing}>
-                          {isSyncing ? '同期中...' : 'Gistから取得'}
-                        </button>
-                        <button onClick={handleManualPush} disabled={isSyncing}>
-                          {isSyncing ? '同期中...' : 'Gistへ保存'}
-                        </button>
-                      </div>
 
                       <details style={{marginTop: '20px'}}>
                         <summary className="summary-btn">PATを上書き再設定する</summary>
