@@ -110,6 +110,15 @@ function App() {
   const [viewMode, setViewMode] = useState('main'); 
   const [activeTab, setActiveTab] = useState('Timer'); 
 
+  const [currentCalDate, setCurrentCalDate] = useState(new Date());
+  const formatDateStr = (date) => {
+    const y = date.getFullYear();
+    const m = date.getMonth() + 1; // ← ゼロ埋めを削除
+    const d = date.getDate();      // ← ゼロ埋めを削除
+    return `${y}-${m}-${d}`;
+  };
+  const [selectedCalDateStr, setSelectedCalDateStr] = useState(formatDateStr(new Date()));
+
   const [timerMode, setTimerMode] = useState('Focus 25');
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
@@ -201,6 +210,34 @@ function App() {
 
     return { todayMins, todayCount, weekMins, totalMins, totalCount };
   })();
+
+  // --- カレンダー生成ロジック ---
+  const getCalendarDays = () => {
+    const year = currentCalDate.getFullYear();
+    const month = currentCalDate.getMonth();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    // 月初めの前の空白を埋める
+    for (let i = 0; i < firstDayIndex; i++) {
+      days.push(null);
+    }
+    // 当月の日付を詰める
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${year}-${month + 1}-${d}`;
+      days.push({ day: d, dateStr });
+    }
+    return days;
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentCalDate(new Date(currentCalDate.getFullYear(), currentCalDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentCalDate(new Date(currentCalDate.getFullYear(), currentCalDate.getMonth() + 1, 1));
+  };
 
   // スマホのフチ（ステータスバーやセーフエリア）の色をモードに合わせて動的に変更する
   useEffect(() => {
@@ -362,6 +399,14 @@ function App() {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
+  };
+
+  const formatMins = (mins) => {
+    if (mins === 0) return '0m';
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
   const exportCSV = () => {
@@ -575,36 +620,89 @@ function App() {
                 <div className="stats-container">
                   <div className="stat-card">
                     <span className="stat-label">今日の集中</span>
-                    <span className="stat-value">{stats.todayMins} <small>分</small></span>
+                    {/* ★ formatMins を適用 */}
+                    <span className="stat-value">{formatMins(stats.todayMins)}</span>
                     <span className="stat-sub">{stats.todayCount} 回</span>
                   </div>
                   <div className="stat-card">
                     <span className="stat-label">直近7日間</span>
-                    <span className="stat-value">{stats.weekMins} <small>分</small></span>
+                    <span className="stat-value">{formatMins(stats.weekMins)}</span>
                     <span className="stat-sub">作業時間</span>
                   </div>
                   <div className="stat-card">
                     <span className="stat-label">累計</span>
-                    <span className="stat-value">{stats.totalMins} <small>分</small></span>
+                    <span className="stat-value">{formatMins(stats.totalMins)}</span>
                     <span className="stat-sub">{stats.totalCount} 回</span>
                   </div>
                 </div>
 
-                {/* 履歴一覧（折りたたみ式） */}
-                <details className="history-details">
-                  <summary className="summary-btn history-summary">
-                    詳細な履歴一覧を見る ▼
-                  </summary>
-                  <div className="history-scroll">
-                    {history.length === 0 ? <p style={{ textAlign: 'center', color: 'gray', marginTop: '20px' }}>履歴なし</p> : history.map((log) => (
-                      <div key={log.id} className="history-item">
-                        <span className="history-date">{log.date.slice(5)} {log.time_range}</span>
-                        <span className="history-task">{log.task_name}</span>
-                        <span className="history-mins">{log.duration_minutes}分</span>
-                      </div>
-                    ))}
+                {/* 集中カレンダーセクション */}
+                <div className="calendar-section">
+                  <div className="calendar-header">
+                    <button onClick={handlePrevMonth} className="icon-btn cal-nav-btn">◀</button>
+                    <span className="calendar-title">
+                      {currentCalDate.getFullYear()}年 {currentCalDate.getMonth() + 1}月
+                    </span>
+                    <button onClick={handleNextMonth} className="icon-btn cal-nav-btn">▶</button>
                   </div>
-                </details>
+
+                  <div className="calendar-grid-weeks">
+                    <span style={{ color: '#ff6b6b' }}>日</span>
+                    <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span>
+                    <span style={{ color: '#74c0fc' }}>土</span>
+                  </div>
+
+                  <div className="calendar-grid-days">
+                    {getCalendarDays().map((item, index) => {
+                      if (!item) return <div key={`empty-${index}`} className="calendar-day-empty"></div>;
+                      const dayLogs = history.filter(log => log.date === item.dateStr);
+                      const dayTotalMins = dayLogs.reduce((sum, log) => sum + log.duration_minutes, 0);
+                      const isSelected = item.dateStr === selectedCalDateStr;
+                      const isToday = item.dateStr === formatDateStr(new Date());
+
+                      return (
+                        <div 
+                          key={item.dateStr} 
+                          onClick={() => setSelectedCalDateStr(item.dateStr)}
+                          className={`calendar-day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${dayTotalMins > 0 ? 'has-data' : ''}`}
+                        >
+                          <span className="day-number" style={{ 
+                            color: isSelected ? 'white' : index % 7 === 0 ? '#ff6b6b' : index % 7 === 6 ? '#74c0fc' : 'white'
+                          }}>{item.day}</span>
+                          
+                          {/* ★ カレンダー内のバッジにも formatMins を適用 */}
+                          {dayTotalMins > 0 ? <span className="day-mins-badge">{formatMins(dayTotalMins)}</span> : <span className="day-mins-empty"></span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* カレンダーで選択した日の作業内容詳細エリア */}
+                <div className="selected-day-details">
+                  <div className="details-header">
+                    <span>📅 {selectedCalDateStr.slice(5).replace('-', '月')}日の詳細</span>
+                    <span className="details-total-mins">
+                      {/* ★ 詳細エリアの合計時間にも formatMins を適用 */}
+                      合計 {formatMins(history.filter(log => log.date === selectedCalDateStr).reduce((sum, log) => sum + log.duration_minutes, 0))}
+                    </span>
+                  </div>
+                  <div className="history-scroll" style={{ maxHeight: '200px' }}>
+                    {history.filter(log => log.date === selectedCalDateStr).length === 0 ? (
+                      <p style={{ textAlign: 'center', color: 'gray', fontSize: '12px', margin: '20px 0' }}>この日の作業履歴はありません</p>
+                    ) : (
+                      history.filter(log => log.date === selectedCalDateStr).map((log) => (
+                        <div key={log.id} className="history-item">
+                          <span className="history-date">{log.time_range}</span>
+                          <span className="history-task" title={log.task_name}>{log.task_name}</span>
+                          
+                          {/* ★ 各タスクの分数にも formatMins を適用 */}
+                          <span className="history-mins">{formatMins(log.duration_minutes)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
 
                 {/* CSV出力ボタンの分岐配置 */}
                 {githubToken ? (
