@@ -109,6 +109,7 @@ const mergeHistory = (local, remote) => {
 function App() {
   const [viewMode, setViewMode] = useState('main'); 
   const [activeTab, setActiveTab] = useState('Timer'); 
+  const [slideDirection, setSlideDirection] = useState('slide-none');
 
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
   const formatDateStr = (date) => {
@@ -128,6 +129,7 @@ function App() {
 
   const startTimeRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -237,6 +239,50 @@ function App() {
 
   const handleNextMonth = () => {
     setCurrentCalDate(new Date(currentCalDate.getFullYear(), currentCalDate.getMonth() + 1, 1));
+  };
+
+  const handleTouchStart = (e) => {
+    // 指が触れた瞬間のX座標とY座標を記録
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
+  };
+
+  const handleTabClick = (targetTab) => {
+    const tabs = ['Timer', 'History', 'Settings'];
+    const currentIndex = tabs.indexOf(activeTab);
+    const targetIndex = tabs.indexOf(targetTab);
+    
+    if (currentIndex < targetIndex) setSlideDirection('slide-left');
+    else if (currentIndex > targetIndex) setSlideDirection('slide-right');
+    else setSlideDirection('slide-none');
+    
+    setActiveTab(targetTab);
+  };
+
+  const handleTouchEnd = (e) => {
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+
+    if (Math.abs(deltaX) > 60 && Math.abs(deltaY) < 40) {
+      const tabs = ['Timer', 'History', 'Settings'];
+      const currentIndex = tabs.indexOf(activeTab);
+
+      if (deltaX < 0) {
+        // 左スワイプ（指を右から左へ） ➔ 次のタブへ（画面は左へスライド）
+        if (currentIndex < tabs.length - 1) {
+          setSlideDirection('slide-left'); // ★追加
+          setActiveTab(tabs[currentIndex + 1]);
+        }
+      } else {
+        // 右スワイプ（指を左から右へ） ➔ 前のタブへ（画面は右へスライド）
+        if (currentIndex > 0) {
+          setSlideDirection('slide-right'); // ★追加
+          setActiveTab(tabs[currentIndex - 1]);
+        }
+      }
+    }
   };
 
   // スマホのフチ（ステータスバーやセーフエリア）の色をモードに合わせて動的に変更する
@@ -544,20 +590,20 @@ function App() {
 
       {viewMode === 'main' && <div className="title-bar">FocusFlow</div>}
 
-      <div className="main-content">
+      <div className="main-content" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {viewMode === 'main' && (
           <div className="main-layout-inner">
             <div className="clock">{currentTime}</div>
             
             <div className="tabs">
-              <button className={activeTab === 'Timer' ? 'active' : ''} onClick={() => setActiveTab('Timer')}>Timer</button>
-              <button className={activeTab === 'History' ? 'active' : ''} onClick={() => setActiveTab('History')}>History</button>
-              <button className={activeTab === 'Settings' ? 'active' : ''} onClick={() => setActiveTab('Settings')}>Settings</button>
+              <button className={activeTab === 'Timer' ? 'active' : ''} onClick={() => handleTabClick('Timer')}>Timer</button>
+              <button className={activeTab === 'History' ? 'active' : ''} onClick={() => handleTabClick('History')}>History</button>
+              <button className={activeTab === 'Settings' ? 'active' : ''} onClick={() => handleTabClick('Settings')}>Settings</button>
             </div>
 
             {/* Timer タブ */}
             {activeTab === 'Timer' && (
-              <div className="tab-content">
+              <div className={`tab-content ${slideDirection}`}>
                 <div className="task-input-container">
                   <p style={{ margin: '5px 0', fontSize: '12px' }}>作業内容</p>
                   <input type="text" className="task-input" placeholder="例: 英語の勉強" value={taskName} onChange={(e) => setTaskName(e.target.value)} />
@@ -587,7 +633,7 @@ function App() {
 
             {/* History タブ */}
             {activeTab === 'History' && (
-              <div className="tab-content history">
+              <div className={`tab-content history ${slideDirection}`}>
                 {/* ★修正：ダッシュボードのタイトルと、小さな同期アイコンボタンを横並びにする */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                   <h3 style={{ margin: 0 }}>ダッシュボード</h3>
@@ -727,7 +773,7 @@ function App() {
 
             {/* Settings タブ */}
             {activeTab === 'Settings' && (
-              <div className="tab-content settings-content">
+              <div className={`tab-content settings-content ${slideDirection}`}>
                 <div className="settings-section">
                   <h4>GitHub Gist 同期設定</h4>
                   

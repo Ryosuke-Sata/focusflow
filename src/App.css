@@ -743,3 +743,25 @@ html, body {
   padding: 0 !important;
   margin: 0 !important;
 }
+
+/* =====================================
+   ★ スライドトランジション（視差風エフェクト）
+===================================== */
+.slide-left {
+  animation: slideInLeft 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.slide-right {
+  animation: slideInRight 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* 画面が右から左へ滑り込んでくる */
+@keyframes slideInLeft {
+  0% { opacity: 0; transform: translateX(30px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* 画面が左から右へ滑り込んでくる */
+@keyframes slideInRight {
+  0% { opacity: 0; transform: translateX(-30px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
