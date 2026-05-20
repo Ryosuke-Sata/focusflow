@@ -89,7 +89,7 @@ const pullFromGist = async (token) => {
 };
 
 const pushToGist = async (token, historyData) => {
-  const contentStr = JSON.stringify(historyData);
+  const contentStr = JSON.stringify(historyData, null, 2);
   const gistId = await findOrCreateGist(token, contentStr);
   const res = await fetch(`https://api.github.com/gists/${gistId}`, {
     method: "PATCH",
@@ -126,10 +126,38 @@ function App() {
   const [taskName, setTaskName] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('ja-JP'));
   const [history, setHistory] = useState([]);
+  const [customMinutes, setCustomMinutes] = useState(25);
 
   const startTimeRef = useRef(null);
   const audioCtxRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
+
+  const getModeDuration = (mode) => {
+    if (mode === 'Focus 25') return 25;
+    if (mode === 'Focus 50') return 50;
+    if (mode === 'Break 5') return 5;
+    if (mode === 'Break 15') return 15;
+    if (mode === 'Custom') return customMinutes;
+    return 25;
+  };
+
+  const adjustCustomMinutes = (amount) => {
+    setCustomMinutes(prev => {
+      const next = Math.max(1, Math.min(180, prev + amount));
+      if (!isRunning && timerMode === 'Custom') {
+        setTimeLeft(next * 60);
+      }
+      return next;
+    });
+  };
+
+  const handleCustomMinutesChange = (val) => {
+    const cleanVal = Math.max(1, Math.min(180, val));
+    setCustomMinutes(cleanVal);
+    if (!isRunning && timerMode === 'Custom') {
+      setTimeLeft(cleanVal * 60);
+    }
+  };
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -330,7 +358,7 @@ function App() {
     // スマホではリサイズ命令は無視されるため，PC版のPWAのみで機能します
     const setOptimalWindowSize = () => {
       if (viewMode === 'main') window.resizeTo(400, 750);
-      else if (viewMode === 'mini') window.resizeTo(220, 260); 
+      else if (viewMode === 'mini') window.resizeTo(280, 320); 
       else if (viewMode === 'bar') window.resizeTo(520, 100); 
     };
     setOptimalWindowSize();
@@ -381,7 +409,7 @@ function App() {
 
   const handleTimerFinish = () => {
     playAlarm();
-    const isFocus = timerMode.includes('Focus');
+    const isFocus = timerMode.includes('Focus') || timerMode === 'Custom';
     if (Notification.permission === 'granted') {
       new Notification('FocusFlow', { body: isFocus ? "お疲れ様でした！休憩しましょう．" : "休憩終了！作業に戻りましょう．" });
     }
@@ -390,9 +418,10 @@ function App() {
       const now = new Date();
       const endTimeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
       const startTimeStr = startTimeRef.current || endTimeStr; 
+      const duration = getModeDuration(timerMode);
       const newLog = {
         id: Date.now(), date: now.toLocaleDateString('ja-JP').replace(/\//g, '-'),
-        duration_minutes: timerMode.includes('25') ? 25 : 50,
+        duration_minutes: duration,
         task_name: taskName || '名無しのタスク', time_range: `${startTimeStr} - ${endTimeStr}`
       };
       
@@ -418,11 +447,14 @@ function App() {
         }
       }
     }
+    // 自動的にタイマーをリセットする
+    setIsRunning(false);
+    setTimeLeft(getModeDuration(timerMode) * 60);
     startTimeRef.current = null;
   };
 
   const toggleTimer = () => {
-    if (!isRunning && timeLeft === (timerMode.includes('25') ? 25 : timerMode.includes('50') ? 50 : timerMode.includes('15') ? 15 : 5) * 60) {
+    if (!isRunning && timeLeft === getModeDuration(timerMode) * 60) {
       startTimeRef.current = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     }
     if (!isRunning) initAudio();
@@ -431,13 +463,14 @@ function App() {
 
   const resetTimer = () => {
     setIsRunning(false);
-    setTimeLeft((timerMode.includes('25') ? 25 : timerMode.includes('50') ? 50 : timerMode.includes('15') ? 15 : 5) * 60);
+    setTimeLeft(getModeDuration(timerMode) * 60);
     startTimeRef.current = null;
   };
 
   const handleModeChange = (mode) => {
     setIsRunning(false); setTimerMode(mode);
-    setTimeLeft((mode.includes('25') ? 25 : mode.includes('50') ? 50 : mode.includes('15') ? 15 : 5) * 60);
+    const duration = mode === 'Custom' ? customMinutes : getModeDuration(mode);
+    setTimeLeft(duration * 60);
     startTimeRef.current = null;
   };
 
@@ -610,10 +643,26 @@ function App() {
                 </div>
 
                 <div className="mode-segments">
-                  {['Focus 25', 'Focus 50', 'Break 5', 'Break 15'].map(m => (
+                  {['Focus 25', 'Focus 50', 'Break 5', 'Break 15', 'Custom'].map(m => (
                     <button key={m} className={timerMode === m ? 'active' : ''} onClick={() => handleModeChange(m)}>{m}</button>
                   ))}
                 </div>
+
+                {timerMode === 'Custom' && (
+                  <div className="custom-timer-adjust">
+                    <button className="btn-adjust" onClick={() => adjustCustomMinutes(-1)}>-</button>
+                    <input 
+                      type="number" 
+                      className="custom-minutes-input"
+                      min="1" 
+                      max="180" 
+                      value={customMinutes} 
+                      onChange={(e) => handleCustomMinutesChange(parseInt(e.target.value) || 1)} 
+                    />
+                    <span className="unit-label">分</span>
+                    <button className="btn-adjust" onClick={() => adjustCustomMinutes(1)}>+</button>
+                  </div>
+                )}
                 <div className="time-display">{formatTime(timeLeft)}</div>
                 <div className="controls">
                   <button className="btn-start" style={{ backgroundColor: isRunning ? 'orange' : '#1f6aa5' }} onClick={toggleTimer}>{isRunning ? 'PAUSE' : 'START'}</button>
