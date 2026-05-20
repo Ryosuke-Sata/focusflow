@@ -161,6 +161,7 @@ html, body {
   font-size: 14px;
   box-sizing: border-box;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 .custom-minutes-input::-webkit-outer-spin-button,
 .custom-minutes-input::-webkit-inner-spin-button {
